@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>清理清单</title>
+<style>
+  :root{
+    --bg:#080B11; --card:#0F1620; --card2:#131C28; --line:#1E2A3A;
+    --ink:#E9F0F7; --dim:#8798AC; --faint:#5A6B80;
+    --safe:#22C55E; --warn:#FFB020; --stop:#FF5A5F; --cool:#22D3EE;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:var(--bg);color:var(--ink);
+    font-family:"PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  body{padding:0 0 132px}
+  #glow{position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:
+      radial-gradient(700px 420px at 18% 0%, rgba(34,197,94,.05), transparent 70%),
+      radial-gradient(700px 460px at 84% 100%, rgba(34,211,238,.05), transparent 72%)}
+
+  .wrap{position:relative;z-index:1;max-width:1040px;margin:0 auto;padding:0 24px}
+
+  /* ── 顶部 ── */
+  header{padding:38px 0 22px}
+  .h1{font-size:30px;font-weight:800;letter-spacing:-.02em}
+  .h1 em{font-style:normal;color:var(--cool)}
+  .sub{margin-top:8px;font-size:13.5px;color:var(--dim);line-height:1.7}
+  .sub b{color:var(--ink);font-weight:600}
+  .stats{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
+  .chip{background:var(--card);border:1px solid var(--line);border-radius:999px;
+    padding:7px 14px;font-size:12.5px;color:var(--dim)}
+  .chip b{color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}
+
+  /* ── 分组标题 ── */
+  .group{margin:30px 0 12px;display:flex;align-items:baseline;gap:10px}
+  .group .g-title{font-size:16px;font-weight:700}
+  .group .g-note{font-size:12.5px;color:var(--faint)}
+  .group.s .g-title{color:var(--safe)}
+  .group.w .g-title{color:var(--warn)}
+  .group.f .g-title{color:var(--faint)}
+
+  /* ── 条目 ── */
+  .list{display:flex;flex-direction:column;gap:9px}
+  .row{display:flex;gap:14px;align-items:flex-start;
+    background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:14px 16px;cursor:pointer;position:relative;overflow:hidden;
+    transition:border-color .14s,background .14s,transform .1s}
+  .row:hover{background:var(--card2);border-color:#2A3A4E}
+  .row:active{transform:scale(.995)}
+  .row .edge{position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--safe);opacity:.75}
+  .row.warn .edge{background:var(--warn)}
+  .row.on{border-color:rgba(34,197,94,.55);background:linear-gradient(90deg,rgba(34,197,94,.09),rgba(15,22,32,.9) 40%)}
+  .row.warn.on{border-color:rgba(255,176,32,.6);background:linear-gradient(90deg,rgba(255,176,32,.10),rgba(15,22,32,.9) 40%)}
+
+  .cbox{flex:0 0 auto;width:22px;height:22px;margin-top:2px;border-radius:6px;
+    border:2px solid #33465C;background:#0A1018;position:relative;transition:all .14s}
+  .row.on .cbox{background:var(--safe);border-color:var(--safe)}
+  .row.warn.on .cbox{background:var(--warn);border-color:var(--warn)}
+  .row.on .cbox::after{content:"";position:absolute;left:6px;top:2px;width:5px;height:10px;
+    border:solid #06120A;border-width:0 2.5px 2.5px 0;transform:rotate(45deg)}
+
+  .body{flex:1;min-width:0}
+  .head{display:flex;align-items:baseline;gap:10px}
+  .nm{font-size:15px;font-weight:700;letter-spacing:-.01em;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sz{flex:0 0 auto;font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;
+    color:var(--safe)}
+  .row.warn .sz{color:var(--warn)}
+  .pt{margin-top:3px;font-size:11.5px;color:var(--faint);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .worst{margin-top:9px;font-size:12.5px;line-height:1.65;color:var(--dim);
+    padding-left:10px;border-left:2px solid rgba(255,255,255,.10)}
+  .row.warn .worst{border-left-color:rgba(255,176,32,.28)}
+  .worst b{color:#B9C8D8;font-weight:600}
+
+  .tag{flex:0 0 auto;font-size:11px;padding:3px 9px;border-radius:999px;
+    background:rgba(34,197,94,.12);color:#7BE0A4;border:1px solid rgba(34,197,94,.22);
+    white-space:nowrap;margin-top:1px}
+  .row.warn .tag{background:rgba(255,176,32,.12);color:#FFCE73;border-color:rgba(255,176,32,.24)}
+  .tags{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+  .tag.admin{background:rgba(255,90,95,.13);color:#FF9EA1;border-color:rgba(255,90,95,.28)}
+
+  /* ── 禁止行 ── */
+  .row.forb{cursor:not-allowed;background:#0C1219;border-color:#182231;opacity:.72}
+  .row.forb:hover{background:#0C1219;border-color:#182231}
+  .row.forb .edge{background:var(--stop);opacity:.55}
+  .row.forb .nm{color:#9AA9BB}
+  .row.forb .sz{color:#7C8B9D}
+  .lock{flex:0 0 auto;width:22px;height:22px;margin-top:2px;display:flex;
+    align-items:center;justify-content:center;font-size:13px;opacity:.6}
+  .forb-note{margin-top:9px;font-size:12.5px;color:#FF8A8E;line-height:1.6}
+  /* 锁死容器里挖出来的可删子项：说明它为什么能勾 */
+  .up-note{margin-top:8px;font-size:12px;line-height:1.6;color:#8FD9E8;
+    padding:6px 9px;border-radius:7px;background:rgba(34,211,238,.08);
+    border-left:2px solid rgba(34,211,238,.45)}
+  .up-note b{color:#B8F0FA;font-weight:600}
+  /* 锁死容器自己：告诉用户里面已经有东西被捞出来了 */
+  .inner-note{margin-top:7px;font-size:12px;line-height:1.6;color:#9BE8B4;
+    padding:6px 9px;border-radius:7px;background:rgba(34,197,94,.09);
+    border-left:2px solid rgba(34,197,94,.42)}
+  .inner-note b{color:#C6F5D8;font-weight:700}
+  .shake{animation:shk .32s}
+  @keyframes shk{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+
+  /* ── 底部操作条 ── */
+  #bar{position:fixed;left:0;right:0;bottom:0;z-index:10;
+    background:linear-gradient(180deg,rgba(8,11,17,.55),rgba(8,11,17,.98) 42%);
+    backdrop-filter:blur(16px);border-top:1px solid var(--line)}
+  #bar .inner{max-width:1040px;margin:0 auto;padding:16px 24px;
+    display:flex;align-items:center;gap:14px}
+  .sum{flex:1;font-size:13.5px;color:var(--dim)}
+  .sum b{font-size:24px;font-weight:800;color:var(--ink);letter-spacing:-.02em;
+    font-variant-numeric:tabular-nums;margin:0 3px}
+  .sum .free{color:var(--safe);font-size:17px;font-weight:800}
+  button{font-family:inherit;font-weight:700;cursor:pointer;border-radius:10px;
+    padding:12px 20px;font-size:13.5px;border:1px solid var(--line);
+    background:rgba(255,255,255,.05);color:var(--ink);transition:all .14s;white-space:nowrap}
+  button:hover{background:rgba(255,255,255,.10);border-color:#2A3A4E}
+  button.primary{background:linear-gradient(180deg,#22C55E,#16A34A);border-color:transparent;
+    color:#04140A;box-shadow:0 8px 26px rgba(34,197,94,.26)}
+  button.primary:hover{filter:brightness(1.07)}
+  button:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;filter:none}
+  button.done{background:linear-gradient(180deg,#7BE0A4,#22C55E);color:#04140A}
+
+  #toast{position:fixed;left:50%;bottom:120px;transform:translate(-50%,10px);z-index:20;
+    background:rgba(34,197,94,.14);border:1px solid rgba(34,197,94,.5);color:#A8F0C6;
+    padding:11px 20px;border-radius:999px;font-size:13px;font-weight:600;
+    opacity:0;pointer-events:none;transition:all .22s}
+  #toast.on{opacity:1;transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+<div id="glow"></div>
+<div class="wrap">
+  <header>
+    <div class="h1">该清哪些，<em>你勾就行</em></div>
+    <div class="sub">
+      下面是扫描出来的全部候选。<b>勾中的才会被清理</b>，没勾的一律不动。<br>
+      每一项都写了「最坏情况」，看完你觉得能接受，再勾。<br>
+      <span style="color:var(--faint)" id="minNote"></span>
+    </div>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <div id="sec-safe"></div>
+  <div id="sec-warn"></div>
+  <div id="sec-forb"></div>
+</div>
+
+<div id="bar">
+  <div class="inner">
+    <div class="sum">已选 <b id="cnt">0</b> 项 · 能腾出 <span class="free" id="free">0 GB</span></div>
+    <button id="pickSafe">一键勾上放心项</button>
+    <button id="copyBtn" class="primary" disabled>复制清理指令</button>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+const DATA = /*__DATA__*/;
+const ITEMS = DATA.items || [];
+
+const fmt = n => !n ? '0'
+              : n >= 1024**3 ? (n/1024**3).toFixed(2)+' GB'
+              : n >= 1024**2 ? (n/1024**2).toFixed(0)+' MB'
+              : (n/1024).toFixed(0)+' KB';
+const esc = s => String(s||'').replace(/[&<>]/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+const el  = (t,c)=>{const e=document.createElement(t); if(c)e.className=c; return e;};
+
+/* 路径省略：保留盘符 + 末尾几段，中间用 … 代替。
+   不用 CSS 的 direction:rtl —— 那会打乱 .workbuddy 这类点的位置。 */
+function shortPath(p, max){
+  max = max || 68;
+  if (!p || p.length <= max) return p || '';
+  const parts = p.split('\\');
+  if (parts.length <= 2) return p.slice(0, max - 1) + '…';
+  const head = parts[0] + '\\';
+  const tail = [];
+  let len = head.length + 2;
+  for (let i = parts.length - 1; i >= 1; i--){
+    if (len + parts[i].length + 1 > max && tail.length) break;
+    tail.unshift(parts[i]);
+    len += parts[i].length + 1;
+  }
+  return head + '…\\' + tail.join('\\');
+}
+
+const safe = ITEMS.filter(i=>i.verdict==='safe');
+const warn = ITEMS.filter(i=>i.verdict==='caution');
+const forb = ITEMS.filter(i=>i.verdict==='forbidden');
+
+/* 渲染顺序 = 勾选索引空间。必须和下面的 fill() 完全一致。
+   ⚠️ 不能用 ITEMS 下标：ITEMS 是全局按体积排序的，和分组后的位置对不上，
+   混用过一次 —— 复制出去的清单张冠李戴，勾的是 A 发给专家的是 B。 */
+const VIEW = [...safe, ...warn, ...forb];
+const picked = new Set();
+
+/* ── 顶部统计 ── */
+(function stats(){
+  const mb = DATA.min_mb || 100;
+  document.getElementById('minNote').textContent =
+    '只列出 ' + mb + ' MB 以上的，更碎的单独清不划算。';
+  const box = document.getElementById('stats');
+  const tot = safe.reduce((s,i)=>s+i.size,0) + warn.reduce((s,i)=>s+i.size,0);
+  const sure = safe.reduce((s,i)=>s+i.size,0);
+  [['能放心删的', safe.length+' 项 · '+fmt(sure)],
+   ['要你判断的', warn.length+' 项'],
+   ['不让动的', forb.length+' 项'],
+   ['全部候选', fmt(tot)]].forEach(([k,v])=>{
+    const c = el('div','chip'); c.innerHTML = k+' <b>'+v+'</b>'; box.appendChild(c);
+  });
+})();
+
+/* ── 渲染条目 ── */
+function renderRow(it, idx, kind){
+  const row = el('div', 'row' + (kind==='caution'?' warn':'') + (kind==='forbidden'?' forb':''));
+  row.dataset.i = idx;
+
+  if (kind === 'forbidden'){
+    const inner = it.innerCount
+      ? `<div class="inner-note">里面有 <b>${it.innerCount}</b> 项（${fmt(it.innerBytes)}）可以单独删 ——
+         已经捞出来，列在上面「可以删」里了。</div>`
+      : '';
+    row.innerHTML = `
+      <span class="edge"></span>
+      <span class="lock">🔒</span>
+      <div class="body">
+        <div class="head"><span class="nm">${esc(it.name)}</span><span class="sz">${fmt(it.size)}</span></div>
+        <div class="pt" title="${esc(it.path)}">${esc(shortPath(it.path))}</div>
+        <div class="forb-note">不能整个删：${esc(it.hint || '删了系统或软件会出问题')}</div>
+        ${inner}
+      </div>`;
+    row.addEventListener('click', ()=>{
+      row.classList.remove('shake'); void row.offsetWidth; row.classList.add('shake');
+    });
+    return row;
+  }
+
+  const up = it.lockedParent
+    ? `<div class="up-note">它在锁死的 <b>${esc(shortPath(it.lockedParent, 46))}</b> 里面，
+       但这一项单独删是安全的，所以捞出来给你勾。</div>`
+    : '';
+
+  row.innerHTML = `
+    <span class="edge"></span>
+    <span class="cbox"></span>
+    <div class="body">
+      <div class="head"><span class="nm">${esc(it.name)}</span><span class="sz">${fmt(it.size)}</span></div>
+      <div class="pt" title="${esc(it.path)}">${esc(shortPath(it.path))}</div>
+      <div class="worst"><b>最坏情况：</b>${esc(it.worst)}</div>
+      ${up}
+    </div>
+    <span class="tags">
+      <span class="tag">${esc(it.kindLabel)}</span>
+      ${it.needsAdmin ? '<span class="tag admin">需管理员</span>' : ''}
+    </span>`;
+
+  row.addEventListener('click', ()=>{
+    if (picked.has(idx)) { picked.delete(idx); row.classList.remove('on'); }
+    else { picked.add(idx); row.classList.add('on'); }
+    sync();
+  });
+  return row;
+}
+
+function fill(secId, list, kind, title, note, startIdx){
+  const host = document.getElementById(secId);
+  if (!list.length) return;
+  const g = el('div','group '+secId.split('-')[1][0]);
+  g.innerHTML = `<span class="g-title">${title}</span><span class="g-note">${note}</span>`;
+  host.appendChild(g);
+  const box = el('div','list');
+  list.forEach((it,k)=> box.appendChild(renderRow(it, startIdx+k, kind)));
+  host.appendChild(box);
+}
+
+let cursor = 0;
+fill('sec-safe', safe, 'safe', '✅ 可以删，放心勾',
+     '这 '+safe.length+' 项删了最多就是重新生成，不影响任何设置和数据', cursor);
+cursor += safe.length;
+fill('sec-warn', warn, 'caution', '⚠️ 你自己判断',
+     '这些删了要付点代价，看完「最坏情况」再决定', cursor);
+cursor += warn.length;
+fill('sec-forb', forb, 'forbidden', '🚫 别动这些',
+     '系统、密钥、存档。勾不了，也不用勾', cursor);
+
+/* ── 汇总 ── */
+function sync(){
+  const n = picked.size;
+  const bytes = [...picked].reduce((s,i)=>s+(VIEW[i]?.size||0),0);
+  document.getElementById('cnt').textContent = n;
+  document.getElementById('free').textContent = bytes ? fmt(bytes) : '0 GB';
+  const btn = document.getElementById('copyBtn');
+  btn.disabled = n === 0;
+  btn.classList.remove('done');
+  btn.textContent = n === 0 ? '复制清理指令' : `复制清理指令（${n} 项 / ${fmt(bytes)}）`;
+  btn.dataset.bytes = bytes;
+}
+
+/* ── 一键勾上放心项 ── */
+document.getElementById('pickSafe').addEventListener('click', ()=>{
+  const allOn = safe.every((_,k)=>picked.has(k));
+  if (allOn){ safe.forEach((_,k)=>picked.delete(k)); }
+  else { safe.forEach((_,k)=>picked.add(k)); }
+  document.querySelectorAll('.row').forEach(r=>{
+    const i = +r.dataset.i;
+    if (i < safe.length) r.classList.toggle('on', picked.has(i));
+  });
+  document.getElementById('pickSafe').textContent =
+    allOn ? '一键勾上放心项' : '取消全选';
+  sync();
+});
+
+/* ── 复制指令 ── */
+async function copyText(t){
+  try { await navigator.clipboard.writeText(t); return true; }
+  catch(e){
+    try{
+      const ta = document.createElement('textarea');
+      ta.value=t; ta.style.cssText='position:fixed;opacity:0;left:-9999px';
+      document.body.appendChild(ta); ta.select();
+      const ok=document.execCommand('copy'); document.body.removeChild(ta); return ok;
+    }catch(_){ return false; }
+  }
+}
+
+document.getElementById('copyBtn').addEventListener('click', async ()=>{
+  const rank = v => v === 'safe' ? 0 : 1;
+  const ids = [...picked].sort((a,b)=>{
+    const d = rank(VIEW[a].verdict) - rank(VIEW[b].verdict);
+    return d !== 0 ? d : VIEW[b].size - VIEW[a].size;
+  });
+  if (!ids.length) return;
+  const bytes = ids.reduce((s,i)=>s+VIEW[i].size,0);
+
+  let msg = `我已经在清理清单里勾好了下面 ${ids.length} 项，合计约 ${fmt(bytes)}。请逐项清理：删一项、报一项，不要批量删；遇到文件被占用或权限不足就跳过并说明原因。\n\n`;
+  ids.forEach((i,k)=>{
+    const it = VIEW[i];
+    const mark = it.verdict === 'safe' ? '✓' : '⚠';
+    const adm = it.needsAdmin ? '［需管理员］' : '';
+    msg += `${k+1}. ${mark} ${it.path}　（${fmt(it.size)}，${it.kindLabel}）${adm}\n`;
+  });
+  const adminN = ids.filter(i=>VIEW[i].needsAdmin).length;
+  msg += `\n清完之后请告诉我：成功几项、跳过几项、失败几项，以及磁盘空间从多少变成了多少。`;
+  if (adminN) msg += `\n其中 ${adminN} 项在 Program Files / ProgramData 下，需要管理员权限——请先确认我是不是用管理员身份开的，不然这些会全部失败。`;
+  msg += `\n删完记得清空回收站，不然空间不算真的还回来。`;
+
+  const ok = await copyText(msg);
+  const btn = document.getElementById('copyBtn');
+  if (ok){
+    btn.classList.add('done');
+    btn.textContent = '✓ 已复制，去对话粘贴';
+    const t = document.getElementById('toast');
+    t.textContent = `已复制 ${ids.length} 项 · ${fmt(bytes)}，回到对话粘贴即可`;
+    t.classList.add('on');
+    setTimeout(()=>t.classList.remove('on'), 2600);
+  } else {
+    btn.textContent = '复制失败，请手动选中';
+  }
+});
+
+/* ── 入场 ── */
+document.querySelectorAll('.row').forEach((r,k)=>{
+  r.style.opacity = 0; r.style.transform = 'translateY(6px)';
+  setTimeout(()=>{
+    r.style.transition = 'opacity .3s, transform .3s';
+    r.style.opacity = 1; r.style.transform = 'none';
+  }, 40 + k*18);
+});
+sync();
+</script>
+</body>
+</html>

@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>磁盘地图</title>
+<style>
+  :root{
+    --bg:#080B11; --panel:#111823; --line:#1E2A3A;
+    --ink:#E6EDF3; --dim:#8494A8; --faint:#4A5A70;
+    --danger:#FF5A5F; --warn:#FFB020; --ok:#3B82F6; --cool:#22D3EE; --sys:#5B6B80;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);
+    font-family:"PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  canvas{position:fixed;inset:0;display:block}
+
+  /* 环境光带：CSS 层，不进 canvas，零重绘成本 */
+  #glow{position:fixed;inset:0;pointer-events:none;z-index:1;
+    background:
+      radial-gradient(680px 420px at 20% 6%, rgba(34,211,238,.075), transparent 70%),
+      radial-gradient(760px 500px at 84% 94%, rgba(59,130,246,.065), transparent 72%),
+      radial-gradient(420px 320px at 50% 50%, rgba(255,90,95,.03), transparent 75%);
+  }
+  /* 顶部细扫光，纯 CSS 循环，GPU 合成 */
+  #beam{position:fixed;left:0;right:0;height:2px;top:-2px;pointer-events:none;z-index:2;
+    background:linear-gradient(90deg,transparent,rgba(34,211,238,.55),transparent);
+    opacity:0;animation:beam 3.2s ease-in-out infinite}
+  @keyframes beam{
+    0%{top:-2px;opacity:0}
+    12%{opacity:.9}
+    50%{top:100%;opacity:.35}
+    62%,100%{top:100%;opacity:0}
+  }
+
+  #top{position:fixed;top:0;left:0;right:0;height:92px;padding:20px 28px 0;
+    display:flex;align-items:flex-start;gap:28px;pointer-events:none;z-index:5}
+  #crumb{flex:1;min-width:0}
+  #path{font-size:13px;color:var(--dim);letter-spacing:.02em;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  #title{font-size:26px;font-weight:700;letter-spacing:-.02em;margin-top:3px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #title .pct{font-size:15px;font-weight:600;color:var(--cool);margin-left:10px;letter-spacing:0}
+  #stats{display:flex;gap:26px;flex:0 0 auto;padding-top:4px}
+  .stat{text-align:right}
+  .stat b{display:block;font-size:21px;font-weight:700;letter-spacing:-.01em;
+    font-variant-numeric:tabular-nums}
+  .stat span{display:block;font-size:11px;color:var(--faint);letter-spacing:.06em;margin-top:2px}
+
+  #rank{position:fixed;right:20px;top:104px;width:236px;z-index:5;
+    background:linear-gradient(180deg,rgba(17,24,35,.92),rgba(17,24,35,.78));
+    border:1px solid var(--line);border-radius:12px;padding:14px 0 8px;
+    backdrop-filter:blur(14px)}
+  #rank h3{font-size:11px;letter-spacing:.14em;color:var(--faint);font-weight:600;
+    padding:0 16px 10px}
+  .row{display:flex;align-items:center;gap:9px;padding:7px 16px;cursor:pointer;
+    transition:background .12s}
+  .row:hover{background:rgba(34,211,238,.09)}
+  .dot{width:7px;height:7px;border-radius:2px;flex:0 0 auto}
+  .row .nm{flex:1;font-size:12.5px;color:var(--ink);white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .row .sz{font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums;flex:0 0 auto}
+  .bar{height:3px;border-radius:2px;margin:2px 16px 1px;opacity:.9}
+
+  #legend{position:fixed;left:28px;bottom:20px;display:flex;gap:18px;
+    font-size:11.5px;color:var(--dim);z-index:5;pointer-events:none}
+  #legend i{display:inline-block;width:8px;height:8px;border-radius:2px;
+    margin-right:6px;vertical-align:middle}
+  #hint{position:fixed;right:20px;bottom:20px;font-size:11.5px;color:var(--faint);z-index:5;
+    transition:opacity .3s}
+
+  #tip{position:fixed;pointer-events:none;opacity:0;transform:translateY(4px);
+    transition:opacity .1s,transform .1s;z-index:9;
+    background:rgba(8,11,17,.96);border:1px solid var(--line);border-radius:8px;
+    padding:9px 12px;max-width:360px;box-shadow:0 8px 30px rgba(0,0,0,.6)}
+  #tip.on{opacity:1;transform:none}
+  #tip .tn{font-size:12.5px;font-weight:600;margin-bottom:3px;
+    word-break:break-all;line-height:1.35}
+  #tip .tv{font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+
+  /* ── 选中操作条 ── */
+  #act{position:fixed;left:50%;bottom:64px;transform:translate(-50%,14px);
+    width:min(760px,calc(100vw - 80px));z-index:12;opacity:0;pointer-events:none;
+    transition:opacity .18s,transform .18s}
+  #act.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+  #act .card{background:linear-gradient(180deg,rgba(17,24,35,.97),rgba(13,18,26,.97));
+    border:1px solid rgba(34,211,238,.32);border-radius:14px;padding:14px 16px;
+    box-shadow:0 18px 50px rgba(0,0,0,.65), 0 0 0 1px rgba(34,211,238,.06) inset}
+  #act .hd{display:flex;align-items:baseline;gap:10px;margin-bottom:4px}
+  #act .nm{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis}
+  #act .sz{font-size:12.5px;font-weight:600;flex:0 0 auto}
+  #act .pt{font-size:11.5px;color:var(--faint);word-break:break-all;line-height:1.4;
+    margin-bottom:12px}
+  #act .btns{display:flex;gap:8px;flex-wrap:wrap}
+  #act button{font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;
+    border-radius:8px;padding:8px 14px;border:1px solid var(--line);
+    background:rgba(255,255,255,.04);color:var(--ink);transition:all .14s;
+    min-width:104px;text-align:center}
+  #act button:hover{background:rgba(255,255,255,.09);border-color:#2A3A4E}
+  #act button:disabled{opacity:.40;cursor:not-allowed;background:rgba(255,255,255,.02);
+    border-color:#243244;color:#6B7A8C}
+  #act button:disabled:hover{background:rgba(255,255,255,.02);border-color:#243244}
+  #act button.primary{background:linear-gradient(180deg,#22D3EE,#0EA5C4);
+    border-color:transparent;color:#04141A;box-shadow:0 6px 20px rgba(34,211,238,.28)}
+  #act button.primary:hover{filter:brightness(1.08)}
+  #act button.danger{border-color:rgba(255,90,95,.42);color:#FF8A8E}
+  #act button.danger:hover{background:rgba(255,90,95,.12)}
+  #act button.ok{background:rgba(34,211,238,.16);border-color:rgba(34,211,238,.5);color:#9EEBF8}
+  #act .esc{margin-left:auto;color:var(--faint);font-size:11.5px;align-self:center}
+
+  #boot{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    flex-direction:column;gap:16px;background:var(--bg);z-index:20;transition:opacity .45s}
+  #boot.off{opacity:0;pointer-events:none}
+  .spin{width:36px;height:36px;border:2px solid var(--line);border-top-color:var(--cool);
+    border-radius:50%;animation:sp .75s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  #boot p{font-size:12.5px;color:var(--faint);letter-spacing:.05em}
+
+  /* HUD 依次滑入：纯 CSS + GPU 合成，不占 canvas 绘制预算 */
+  @keyframes hudIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+  @keyframes hudUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  #top   {animation:hudIn .55s cubic-bezier(.22,1,.36,1) .62s both}
+  #rank  {animation:hudIn .55s cubic-bezier(.22,1,.36,1) .82s both}
+  #legend{animation:hudUp .55s cubic-bezier(.22,1,.36,1) 1.02s both}
+  #hint  {animation:hudUp .55s cubic-bezier(.22,1,.36,1) 1.18s backwards}
+</style>
+</head>
+<body>
+<div id="glow"></div>
+<div id="beam"></div>
+<canvas id="cv"></canvas>
+
+<div id="top">
+  <div id="crumb">
+    <div id="path">—</div>
+    <div id="title">—</div>
+  </div>
+  <div id="stats">
+    <div class="stat"><b id="s-size">0</b><span>总占用</span></div>
+    <div class="stat"><b id="s-files">0</b><span>文件</span></div>
+    <div class="stat"><b id="s-time">0s</b><span>扫描耗时</span></div>
+  </div>
+</div>
+
+<div id="rank"><h3>最占地方 TOP 10</h3><div id="rank-list"></div></div>
+
+<div id="legend">
+  <span><i style="background:#FF5A5F"></i>≥10GB 建议处理</span>
+  <span><i style="background:#FFB020"></i>1–10GB</span>
+  <span><i style="background:#3B82F6"></i>100MB–1GB</span>
+  <span><i style="background:#22D3EE"></i>10–100MB</span>
+  <span><i style="background:#5B6B80"></i>&lt;10MB</span>
+</div>
+<div id="hint">单击选中 → 可对它下指令 · 双击进入下一层 · ESC 返回</div>
+
+<div id="tip"><div class="tn"></div><div class="tv"></div></div>
+
+<div id="act">
+  <div class="card">
+    <div class="hd"><span class="nm"></span><span class="sz"></span></div>
+    <div class="pt"></div>
+    <div class="btns">
+      <button class="primary" data-act="enter">进入下一层</button>
+      <button class="danger" data-act="clean">复制清理指令</button>
+      <button data-act="move">复制搬家指令</button>
+      <button data-act="path">复制路径</button>
+      <span class="esc">ESC 取消</span>
+    </div>
+  </div>
+</div>
+
+<div id="boot"><div class="spin"></div><p>正在解析磁盘地图…</p></div>
+
+<script>
+const DATA = /*__DATA__*/;
+
+/* ───────── 基础 ───────── */
+const LV = [
+  {min:10*1024**3, c:'#FF5A5F'},
+  {min:1*1024**3,  c:'#FFB020'},
+  {min:100*1024**2,c:'#3B82F6'},
+  {min:10*1024**2, c:'#22D3EE'},
+  {min:0,          c:'#5B6B80'},
+];
+const colorOf = n => (LV.find(l => n >= l.min) || LV[4]).c;
+const hex2rgb = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
+const rgba = (h,a) => { const [r,g,b] = hex2rgb(h); return `rgba(${r},${g},${b},${a})`; };
+const clamp = (v,a,b) => Math.min(b, Math.max(a, v));
+const easeOut = t => 1 - Math.pow(1 - clamp(t,0,1), 3);
+const easeIn  = t => Math.pow(clamp(t,0,1), 2.2);
+
+function human(n){
+  if (n >= 1024**4) return (n/1024**4).toFixed(2)+' TB';
+  if (n >= 1024**3) return (n/1024**3).toFixed(1)+' GB';
+  if (n >= 1024**2) return (n/1024**2).toFixed(1)+' MB';
+  if (n >= 1024)    return (n/1024).toFixed(0)+' KB';
+  return n+' B';
+}
+
+/* ───────── Squarified Treemap ───────── */
+function worstRatio(row, side){
+  const sum = row.reduce((s,r)=>s+r.area, 0);
+  if (sum <= 0 || side <= 0) return Infinity;
+  let worst = 0;
+  for (const r of row){
+    const w = r.area / (sum/side), h = sum / side;
+    if (h <= 0 || w <= 0) return Infinity;
+    worst = Math.max(worst, Math.max(w/h, h/w));
+  }
+  return worst;
+}
+function layoutRow(row, x, y, w, h, vertical){
+  const sum = row.reduce((s,r)=>s+r.area, 0);
+  if (vertical){
+    const rh = sum / w; let cx = x;
+    for (const r of row){ const rw = r.area/rh; r.x=cx; r.y=y; r.w=rw; r.h=rh; cx+=rw; }
+    return {x, y:y+rh, w, h:h-rh};
+  } else {
+    const rw = sum / h; let cy = y;
+    for (const r of row){ const rhh = r.area/rw; r.x=x; r.y=cy; r.w=rw; r.h=rhh; cy+=rhh; }
+    return {x:x+rw, y, w:w-rw, h};
+  }
+}
+function squarify(items, rect, pad){
+  const out = [];
+  const list = items.slice().sort((a,b)=>b.size-a.size);
+  const total = list.reduce((s,i)=>s+i.size, 0);
+  if (!total || rect.w<=0 || rect.h<=0) return out;
+  const scale = (rect.w*rect.h)/total;
+  const work = list.map(i=>({...i, area:i.size*scale}));
+  let {x,y,w,h} = rect, idx = 0;
+  while (idx < work.length){
+    if (w <= 0.5 || h <= 0.5) break;
+    // side 必须是「行沿其铺开的边长」：vertical=true 时行沿宽度铺开，
+    // 厚度才是 sum/w，所以基准边长取 w。取 h 会让同行第二个方块的比例恒 >1，
+    // 贪心永远只放一个，退化成全宽横条。
+    const vertical = w >= h, side = vertical ? w : h;
+    let row = [], best = Infinity, j = idx;
+    while (j < work.length){
+      const trial = row.concat([work[j]]);
+      const r = worstRatio(trial, side);
+      if (r <= best || row.length === 0){ row = trial; best = r; j++; } else break;
+    }
+    const next = layoutRow(row, x, y, w, h, vertical);
+    for (const r of row){
+      out.push({name:r.name, path:r.path, size:r.size, files:r.files,
+        kids:r.children && r.children.length ? r.children : null,
+        x:r.x+pad, y:r.y+pad, w:Math.max(0,r.w-pad*2), h:Math.max(0,r.h-pad*2)});
+    }
+    ({x,y,w,h} = next); idx = j;
+  }
+  return out;
+}
+
+/* ───────── 状态 ───────── */
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let DPR = Math.min(window.devicePixelRatio || 1, 2);
+let W = 0, H = 0;
+let stack = [], rects = [];
+let hoverIdx = -1, selIdx = -1;
+let t0 = performance.now();          // 当前层绘制起点
+let zoom = null;                     // {cx,cy,t0,phase} 下钻穿越
+let rafId = null, forceFrames = 0;
+let scanY = 1e9;                     // 入场扫描线当前所在 y；1e9 = 已扫完
+const SCAN_DUR = 950;                // 扫描线走完全屏的时长
+const PAD = 1.2, TOP_H = 96, RANK_W = 268, BOT_H = 46;
+const MAX_KIDS = [40, 24, 14], MAX_DEPTH = 2, MIN_RECURSE = 900;
+
+function resize(){
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = W*DPR; cv.height = H*DPR;
+  cv.style.width = W+'px'; cv.style.height = H+'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  relayout();
+  kick(20);
+}
+function areaRect(){ return {x:18, y:TOP_H, w:Math.max(60, W-RANK_W-36), h:Math.max(60, H-TOP_H-BOT_H)}; }
+function currentNode(){ return stack[stack.length-1]; }
+
+function relayout(){
+  const node = currentNode(); if (!node) return;
+  rects = squarify((node.children||[]).filter(k=>k.size>0), areaRect(), PAD);
+  t0 = performance.now();
+  selIdx = -1; closeAct();
+}
+
+/* ───────── 渲染 ───────── */
+function fitText(txt, maxW){
+  if (maxW <= 8) return '';
+  if (ctx.measureText(txt).width <= maxW) return txt;
+  let s = txt;
+  while (s.length > 2 && ctx.measureText(s+'…').width > maxW) s = s.slice(0,-1);
+  return s+'…';
+}
+
+function paintNode(r, el, depth, idx, baseColor){
+  if (r.w < 0.7 || r.h < 0.7) return;
+
+  // 入场：扫描线推进到哪，方块就点亮到哪（逐行被"扫"出来）
+  let ap = 1, sc = 1, flash = 0;
+  const cy0 = r.y + r.h * 0.5;
+  if (cy0 > scanY) return;
+  const litK = clamp((scanY - cy0) / 190, 0, 1);
+  if (litK < 1){ ap = litK * litK; sc = 0.90 + 0.10 * litK; flash = (1 - litK) * 0.22; }
+
+  const c = depth === 0 ? colorOf(r.size) : baseColor;
+  const isHover = depth === 0 && (idx === hoverIdx || idx === selIdx);
+  const isSel   = depth === 0 && idx === selIdx;
+
+  let rx = r.x, ry = r.y, rw = r.w, rh = r.h;
+  if (sc !== 1){
+    const cx = r.x + r.w/2, cy = r.y + r.h/2;
+    rw = r.w*sc; rh = r.h*sc; rx = cx-rw/2; ry = cy-rh/2;
+  }
+
+  ctx.globalAlpha = ap;
+
+  if (depth === 0){
+    const g = ctx.createLinearGradient(rx, ry, rx+rw, ry+rh);
+    g.addColorStop(0, rgba(c, isSel ? .52 : (isHover ? .42 : .21)));
+    g.addColorStop(1, rgba(c, isSel ? .36 : (isHover ? .28 : .11)));
+    ctx.fillStyle = g;
+    ctx.fillRect(rx, ry, rw, rh);
+
+    // 选中/悬停：选中态统一用交互色（青），不用块自身色——红块上画红框等于没画
+    if (isSel){
+      ctx.strokeStyle = 'rgba(125,240,255,.30)'; ctx.lineWidth = 7;
+      ctx.strokeRect(rx-2.5, ry-2.5, rw+5, rh+5);
+      ctx.strokeStyle = 'rgba(125,240,255,.62)'; ctx.lineWidth = 4;
+      ctx.strokeRect(rx-1.2, ry-1.2, rw+2.4, rh+2.4);
+    }
+    ctx.strokeStyle = isSel ? '#C8FAFF' : (isHover ? rgba(c,.92) : rgba(c,.38));
+    ctx.lineWidth = isSel ? 2.4 : (isHover ? 1.6 : .9);
+    ctx.strokeRect(rx+.4, ry+.4, rw-.8, rh-.8);
+  } else if (depth === 1){
+    // 明度随层级递增 + 相邻兄弟奇偶错开：
+    // 不然像 C 盘这种「Users 一块占掉半张图」的情况，里面整片糊成一个色，
+    // 层级完全读不出来 —— 而层级正是这个图唯一的价值。
+    ctx.fillStyle = rgba(c, idx % 2 ? .17 : .12);
+    ctx.fillRect(rx, ry, rw, rh);
+    if (rw > 34 && rh > 24){
+      ctx.strokeStyle = rgba(c, .30); ctx.lineWidth = .7;
+      ctx.strokeRect(rx+.35, ry+.35, rw-.7, rh-.7);
+    }
+  } else {
+    ctx.fillStyle = rgba(c, idx % 2 ? .25 : .19);
+    ctx.fillRect(rx, ry, rw, rh);
+  }
+
+  // 刚被扫描线扫过：短暂提亮，制造"被点亮"的瞬间
+  if (flash > 0){
+    ctx.fillStyle = `rgba(205,250,255,${flash})`;
+    ctx.fillRect(rx, ry, rw, rh);
+  }
+  ctx.globalAlpha = 1;
+
+  // 文字
+  const fs = depth === 0
+    ? Math.min(26, Math.max(10.5, rh*0.16))
+    : Math.min(14, Math.max(9, rh*0.30));
+  const minW = depth === 0 ? 44 : 62, minH = depth === 0 ? 22 : 15;
+  // 第三层也标名字，但只标够大的：C 盘里 Users 一块吃掉半张图，
+  // 真正想知道的东西（AppData、Documents…）全在第三层，不标就白画了。
+  const labelable = depth <= 1 || (depth === 2 && rw >= 118 && rh >= 34);
+  if (labelable && rw >= minW && rh >= minH && ap > .55){
+    ctx.globalAlpha = ap;
+    ctx.font = `${depth===0?700:600} ${fs}px "PingFang SC","Microsoft YaHei",system-ui,sans-serif`;
+    ctx.textBaseline = 'top';
+    const pad = Math.max(5, fs*0.4);
+    const label = fitText(r.name, rw - pad*2);
+    if (label){
+      const lw = ctx.measureText(label).width;
+      const showSize = depth === 0 ? rh > fs*2.7 : (rh > fs*2.6 && rw > 96);
+      const blockH = fs*1.16*(showSize?2:1) + pad*1.2;
+      const g2 = ctx.createLinearGradient(rx, ry, rx, ry+blockH+pad);
+      g2.addColorStop(0, depth===0 ? 'rgba(8,11,17,.76)' : 'rgba(8,11,17,.60)');
+      g2.addColorStop(1, 'rgba(8,11,17,0)');
+      ctx.fillStyle = g2;
+      ctx.fillRect(rx, ry, Math.min(rw, lw+pad*2.4), blockH+pad);
+
+      ctx.fillStyle = depth===0
+        ? (isSel||isHover ? '#FFFFFF' : 'rgba(236,242,248,.96)')
+        : 'rgba(212,224,238,.9)';
+      ctx.fillText(label, rx+pad, ry+pad*0.8);
+
+      if (showSize){
+        const fs2 = Math.max(9.5, fs*0.60);
+        ctx.font = `600 ${fs2}px "PingFang SC","Microsoft YaHei",system-ui,sans-serif`;
+        ctx.fillStyle = depth===0 ? rgba(c,.95) : 'rgba(150,166,186,.92)';
+        ctx.fillText(human(r.size), rx+pad, ry+pad*0.8+fs*1.16);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  if (depth >= MAX_DEPTH) return;
+  const kids = (r.kids||[]).filter(k=>k.size>0);
+  if (!kids.length || rw*rh < MIN_RECURSE || rw < 46 || rh < 26) return;
+
+  const headH = Math.min(rh*0.42,
+    (depth===0 ? Math.min(26, Math.max(10.5, rh*0.16)) : Math.min(14, Math.max(9, rh*0.30)))*1.5
+    + (depth===0?12:8));
+  const inset = depth===0 ? 2.4 : 1.6;
+  const body = {x:rx+inset, y:ry+inset+(depth===0?headH:Math.min(headH, rh*0.3)),
+    w:rw-inset*2, h:rh-inset*2-(depth===0?headH:Math.min(headH, rh*0.3))};
+  if (body.w < 16 || body.h < 12) return;
+
+  const take = kids.slice(0, MAX_KIDS[depth]);
+  const items = take.map(k=>({name:k.name, size:k.size, children:k.children, path:k.path}));
+  const shown = take.reduce((s,k)=>s+k.size, 0);
+  const rest = r.size - shown;
+  if (rest > 0 && rest/r.size > 0.002) items.push({name:'其它', size:rest, children:null});
+
+  const gap = depth===0 ? .8 : (depth===1 ? .7 : 0);
+  squarify(items, body, gap).forEach((q,j)=>paintNode(q, el, depth+1, idx+j+1, c));
+}
+
+/* draw 返回 true = 还要继续画 */
+function draw(){
+  const now = performance.now();
+  const el = now - t0;
+  const st = clamp(el / SCAN_DUR, 0, 1);
+  scanY = st >= 1 ? H + 400 : H * easeOut(st) * 1.02;
+
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = '#080B11';
+  ctx.fillRect(0,0,W,H);
+
+  let busy = false;
+
+  // 下钻穿越：整幅缩放
+  if (zoom){
+    const d = zoom.phase === 'out' ? 170 : 260;
+    const k = clamp((now - zoom.t0)/d, 0, 1);
+    let s, a;
+    if (zoom.phase === 'out'){ s = 1 + 0.5*easeIn(k); a = 1 - k; }
+    else { s = 0.80 + 0.20*easeOut(k); a = easeOut(k); }
+    ctx.save();
+    ctx.translate(zoom.cx, zoom.cy); ctx.scale(s, s); ctx.translate(-zoom.cx, -zoom.cy);
+    ctx.globalAlpha = a;
+    rects.forEach((r,i)=>paintNode(r, el, 0, i, null));
+    ctx.restore();
+    ctx.globalAlpha = 1;
+    if (k >= 1){
+      if (zoom.phase === 'out'){ zoom = {cx:zoom.cx, cy:zoom.cy, t0:now, phase:'in'}; }
+      else { zoom = null; }
+    }
+    busy = true;
+  } else {
+    rects.forEach((r,i)=>paintNode(r, el, 0, i, null));
+  }
+
+  // 入场扫描线：宽光带 + 双亮芯 + 余辉，从上推到底
+  if (st < 1.02 && !zoom){
+    const y = scanY;
+    // 拖尾光带（越高越淡）
+    const g = ctx.createLinearGradient(0, y-260, 0, y+8);
+    g.addColorStop(0,   'rgba(34,211,238,0)');
+    g.addColorStop(.42, 'rgba(34,211,238,.13)');
+    g.addColorStop(.78, 'rgba(96,232,252,.34)');
+    g.addColorStop(.96, 'rgba(200,252,255,.66)');
+    g.addColorStop(1,   'rgba(235,254,255,.92)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, Math.max(0, y-260), W, 268);
+    // 亮芯（双层）
+    ctx.fillStyle = 'rgba(240,254,255,.98)';
+    ctx.fillRect(0, y, W, 2.2);
+    ctx.fillStyle = 'rgba(34,211,238,.55)';
+    ctx.fillRect(0, y-5, W, 1.2);
+    // 底部扩散光（照亮即将出现的区域）
+    const g2 = ctx.createLinearGradient(0, y, 0, y+64);
+    g2.addColorStop(0, 'rgba(90,230,250,.20)');
+    g2.addColorStop(1, 'rgba(34,211,238,0)');
+    ctx.fillStyle = g2;
+    ctx.fillRect(0, y, W, 64);
+    busy = true;
+  }
+
+  if (el < SCAN_DUR + 420) busy = true;
+  if (forceFrames > 0){ forceFrames--; busy = true; }
+  return busy;
+}
+
+function tick(){
+  const busy = draw();
+  rafId = busy ? requestAnimationFrame(tick) : null;
+}
+function kick(frames){
+  forceFrames = Math.max(forceFrames, frames||1);
+  if (rafId === null) rafId = requestAnimationFrame(tick);
+}
+
+/* ───────── HUD ───────── */
+let sizeAnim = null, sizeTimer = null, firstHud = true;
+function rollNumber(el, to, fmt, delay){
+  if (sizeTimer){ clearTimeout(sizeTimer); sizeTimer = null; }
+  if (sizeAnim){ cancelAnimationFrame(sizeAnim); sizeAnim = null; }
+  const start = ()=>{
+    const t = performance.now(), dur = 900;
+    const step = ()=>{
+      const k = clamp((performance.now()-t)/dur, 0, 1);
+      el.textContent = fmt((to)*easeOut(k));
+      if (k < 1) sizeAnim = requestAnimationFrame(step); else sizeAnim = null;
+    };
+    step();
+  };
+  if (delay && delay > 0) sizeTimer = setTimeout(start, delay); else start();
+}
+
+function updateHud(){
+  const node = currentNode(); if (!node) return;
+  const total = DATA.total_size || 1;
+  document.getElementById('path').textContent =
+    stack.length > 1 ? stack.map(n=>n.name).join('  ›  ') : DATA.root;
+  document.getElementById('title').innerHTML =
+    esc(node.name) + (stack.length > 1
+      ? `<span class="pct">${(node.size/total*100).toFixed(1)}% · ${human(node.size)}</span>`
+      : `<span class="pct">磁盘总占用 ${human(node.size)}</span>`);
+  rollNumber(document.getElementById('s-size'), DATA.total_size, v=>human(v),
+             firstHud ? 640 : 0);
+  firstHud = false;
+  document.getElementById('s-files').textContent = (DATA.total_files||0).toLocaleString();
+  document.getElementById('s-time').textContent = (DATA.elapsed_sec||0)+'s';
+  renderRank();
+}
+function esc(s){ return String(s).replace(/[&<>]/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])); }
+
+function renderRank(){
+  const node = currentNode();
+  const kids = ((node && node.children)||[]).slice().sort((a,b)=>b.size-a.size).slice(0,10);
+  const box = document.getElementById('rank-list');
+  const max = kids.length ? kids[0].size : 1;
+  box.innerHTML = kids.map((k,i)=>{
+    const c = colorOf(k.size);
+    return `<div class="row" data-i="${i}" title="${esc(k.path||'')}">
+      <span class="dot" style="background:${c}"></span>
+      <span class="nm">${esc(k.name)}</span>
+      <span class="sz">${human(k.size)}</span></div>
+    <div class="bar" style="background:${c};width:${Math.max(2,(k.size/max)*100)}%"></div>`;
+  }).join('') || '<div class="row" style="color:#4A5A70;font-size:12px">空</div>';
+
+  box.querySelectorAll('.row').forEach(el=>{
+    el.onclick = ()=>{
+      const k = kids[+el.dataset.i];
+      if (k) { selectByNode(k); }
+    };
+  });
+}
+
+/* ───────── 选中 + 操作条 ───────── */
+const act = document.getElementById('act');
+let selNode = null, selRisk = 'normal';
+
+const DEFAULT_LABEL = {enter:'进入下一层', clean:'复制清理指令',
+                       move:'复制搬家指令', path:'复制路径'};
+
+/* 风险判定：不能给小白一个"清理整个 Windows"的按钮 */
+function riskOf(r){
+  const p = (r.path || '').replace(/\//g, '\\').toLowerCase().replace(/\\+$/, '');
+  const seg = p.split('\\');
+  const FORBID = ['windows','program files','program files (x86)','programdata',
+                  'system volume information','$recycle.bin','recovery','winre.wim'];
+  if (seg.some(s => FORBID.includes(s))) return 'forbidden';
+  // 容器型目录：里面能清，但不能整体清/搬
+  if ((r.name||'').toLowerCase() === 'appdata') return 'caution';
+  return 'normal';
+}
+
+function showAct(r){
+  selNode = r;
+  selRisk = riskOf(r);
+  act.querySelector('.nm').textContent = r.name;
+  act.querySelector('.sz').textContent = human(r.size);
+  act.querySelector('.sz').style.color = colorOf(r.size);
+  act.querySelector('.pt').textContent = r.path || '';
+
+  const isDir = !!(r.kids && r.kids.length);
+  const bE = act.querySelector('[data-act="enter"]');
+  const bC = act.querySelector('[data-act="clean"]');
+  const bM = act.querySelector('[data-act="move"]');
+
+  bE.style.display = isDir ? '' : 'none';
+  bM.style.display = isDir ? '' : 'none';
+
+  bC.disabled = bM.disabled = false;
+  bC.textContent = DEFAULT_LABEL.clean;
+  bM.textContent = DEFAULT_LABEL.move;
+
+  if (selRisk === 'forbidden'){
+    bC.textContent = '系统目录 · 不能清理'; bC.disabled = true;
+    bM.textContent = '系统目录 · 不能搬家'; bM.disabled = true;
+  } else if (selRisk === 'caution'){
+    bC.textContent = '看看里面哪些能清';
+    bM.textContent = '看看里面哪些能搬';
+  }
+
+  act.classList.add('on');
+  document.getElementById('hint').style.opacity = '0';
+  kick(6);
+}
+function closeAct(){
+  act.classList.remove('on');
+  selNode = null;
+  document.getElementById('hint').style.opacity = '1';
+  kick(4);
+}
+function selectByNode(k){
+  // 从榜单点击：找到对应 rect
+  const i = rects.findIndex(r=>r.name===k.name && r.path===k.path);
+  if (i >= 0){ selIdx = i; hoverIdx = -1; showAct(rects[i]); }
+  else {
+    const fake = {name:k.name, path:k.path, size:k.size, kids:k.children};
+    selIdx = -1; showAct(fake);
+  }
+}
+
+async function copyText(t){
+  try { await navigator.clipboard.writeText(t); return true; }
+  catch(e){
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = t; ta.style.cssText = 'position:fixed;opacity:0;left:-9999px';
+      document.body.appendChild(ta); ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta); return ok;
+    } catch(e2){ return false; }
+  }
+}
+
+act.addEventListener('click', async e=>{
+  const btn = e.target.closest('button'); if (!btn || !selNode) return;
+  const kind = btn.dataset.act;
+  const p = selNode.path || '(未知路径)';
+  const sz = human(selNode.size);
+
+  if (kind === 'enter'){
+    enter(selNode); return;
+  }
+  let text = '';
+  if (kind === 'clean'){
+    text = selRisk === 'caution'
+      ? `帮我看看 ${p}（${sz}）里面哪些子目录能安全清理。整个目录不能删，要先进去看。`
+      : `帮我清理 ${p}，它占了 ${sz}。先扫描说明里面到底有什么、哪些能安全删，再等我确认后动手。`;
+  } else if (kind === 'move'){
+    text = selRisk === 'caution'
+      ? `${p} 整个不能搬。帮我看看里面哪些子目录（比如 Local 下某个 App 的数据）值得搬到别的盘，用 junction 建传送门。`
+      : `把 ${p}（${sz}）搬到空间富余的盘，用 junction 在原位建传送门，搬完要验证相关程序还能照常使用。`;
+  } else if (kind === 'path'){
+    text = p;
+  }
+  const ok = await copyText(text);
+  const old = btn.textContent;
+  btn.textContent = ok ? '已复制 ✓ 去对话里粘贴' : '复制失败，请手动选中';
+  btn.classList.add('ok');
+  setTimeout(()=>{ btn.textContent = old; btn.classList.remove('ok'); }, 1800);
+});
+
+/* ───────── 交互 ───────── */
+function hitTest(mx,my){
+  for (let i=rects.length-1;i>=0;i--){
+    const r = rects[i];
+    if (mx>=r.x && mx<=r.x+r.w && my>=r.y && my<=r.y+r.h) return i;
+  }
+  return -1;
+}
+const tip = document.getElementById('tip');
+cv.addEventListener('mousemove', e=>{
+  const i = hitTest(e.clientX, e.clientY);
+  if (i !== hoverIdx){ hoverIdx = i; kick(3); }
+  cv.style.cursor = i>=0 ? 'pointer' : 'default';
+  if (i >= 0){
+    const r = rects[i], node = currentNode();
+    const pct = node ? (r.size/node.size*100).toFixed(1) : '0';
+    tip.querySelector('.tn').textContent = r.name;
+    tip.querySelector('.tv').textContent =
+      `${human(r.size)} · 占本层 ${pct}%${r.files?` · ${r.files.toLocaleString()} 个文件`:''}${r.kids?' · 双击进入':''}`;
+    tip.style.left = Math.min(e.clientX+14, W-380)+'px';
+    tip.style.top  = Math.min(e.clientY+14, H-96)+'px';
+    tip.classList.add('on');
+  } else tip.classList.remove('on');
+});
+cv.addEventListener('mouseleave', ()=>{ tip.classList.remove('on'); hoverIdx = -1; kick(3); });
+
+function enter(node){
+  if (!node) return;
+  const kids = node.children || node.kids;
+  if (!kids || !kids.length) return;
+  const target = {name:node.name, path:node.path||'', size:node.size, files:node.files, children:kids};
+  // 找到点击位置（用于 zoom 中心）
+  const i = rects.findIndex(r=>r.path===node.path && r.name===node.name);
+  const cx = i>=0 ? rects[i].x + rects[i].w/2 : W/2;
+  const cy = i>=0 ? rects[i].y + rects[i].h/2 : H/2;
+
+  closeAct();
+  zoom = {cx, cy, t0:performance.now(), phase:'out'};
+  kick(60);
+  setTimeout(()=>{
+    stack.push(target);
+    relayout();          // 会重置 t0，让新一层的方块重新生长
+    zoom = {cx, cy, t0:performance.now(), phase:'in'};
+    updateHud();
+    kick(60);
+  }, 175);
+}
+
+function back(){
+  if (stack.length <= 1) return;
+  closeAct();
+  stack.pop();
+  zoom = {cx:W/2, cy:H/2, t0:performance.now(), phase:'in'};
+  relayout(); updateHud(); kick(60);
+}
+
+cv.addEventListener('click', e=>{
+  if (zoom) return;
+  const i = hitTest(e.clientX, e.clientY);
+  if (i >= 0){
+    selIdx = i; hoverIdx = i;
+    showAct(rects[i]); kick(6);
+  } else {
+    selIdx = -1; closeAct(); kick(4);
+  }
+});
+cv.addEventListener('dblclick', e=>{
+  const i = hitTest(e.clientX, e.clientY);
+  if (i >= 0 && rects[i].kids) enter(rects[i]);
+});
+cv.addEventListener('contextmenu', e=>{ e.preventDefault(); back(); });
+
+window.addEventListener('keydown', e=>{
+  if (e.key === 'Escape'){ if (selIdx>=0){ selIdx=-1; closeAct(); kick(4);} else back(); }
+});
+
+/* ───────── 启动 ───────── */
+window.addEventListener('resize', resize);
+function boot(){
+  stack = [DATA.tree];
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = W*DPR; cv.height = H*DPR;
+  cv.style.width = W+'px'; cv.style.height = H+'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  relayout();
+  updateHud();
+  t0 = performance.now();
+  kick(160);
+  setTimeout(()=>document.getElementById('boot').classList.add('off'), 90);
+}
+boot();
+</script>
+</body>
+</html>

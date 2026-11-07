@@ -1,0 +1,61 @@
+{
+  "name": "disk-doctor",
+  "version": "1.3.4",
+  "description": "Diagnose Windows disk usage with a visual treemap map, then relocate large folders with directory junctions so programs keep working.",
+  "author": {
+    "name": "pandarick916",
+    "email": "pandarick@126.com"
+  },
+  "agents": [
+    "./agents/disk-doctor.md"
+  ],
+  "expertType": "agent",
+  "agentName": "disk-doctor",
+  "displayName": {
+    "en": "Disk Slimming Specialist",
+    "zh": "硬盘瘦身专项助理"
+  },
+  "profession": {
+    "en": "Disk Slimming Specialist",
+    "zh": "硬盘瘦身专项助理"
+  },
+  "displayDescription": {
+    "en": "See at a glance who is eating your disk space; tick scattered files to clean; move big folders off the C drive.",
+    "zh": "一眼看清硬盘地图，谁在吃空间；一键勾选清理深度碎文件；大目录搬运瘦身C盘"
+  },
+  "avatar": "avatars/pacman.png",
+  "categoryId": "02-Engineering",
+  "defaultInitPrompt": {
+    "zh": "帮我看看C盘是什么东西最占空间",
+    "en": "Show me what is taking up the most space on my C drive"
+  },
+  "plugin": "disk-doctor",
+  "tags": [
+    {
+      "en": "Visual Disk Space Map",
+      "zh": "硬盘空间可视地图"
+    },
+    {
+      "en": "Space Relocation",
+      "zh": "硬盘空间转移"
+    },
+    {
+      "en": "Deep Scattered-File Cleanup",
+      "zh": "深度碎文件可视化清理"
+    }
+  ],
+  "quickPrompts": [
+    {
+      "en": "Show me what is taking up the most space on my C drive",
+      "zh": "帮我看看C盘是什么东西最占空间"
+    },
+    {
+      "en": "Summarize a C-drive cleanup list I can tick to delete",
+      "zh": "给我总结一份C盘清理清单，让我可以一键勾选要删哪些"
+    },
+    {
+      "en": "Move that huge folder to another drive, keep the program working",
+      "zh": "把那个特别大的文件夹搬到别的盘，程序还要照常用"
+    }
+  ]
+}

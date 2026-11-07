@@ -1,0 +1,37 @@
+# Scan output — regenerate locally, never commit (contains your real paths)
+scan.json
+scan.html
+scan.png
+scan_cleanup.html
+scan_cleanup.png
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Secrets — never commit credentials of any kind
+.env
+.env.*
+*.key
+*.pem
+credentials*
+
+# added by github-repo-publisher
+appid_secret.txt
+wechat.env
+*.env
+credentials.json
+id_rsa
+id_dsa
+id_ed25519
+node_modules/
+system-commandline-sentinel-files/

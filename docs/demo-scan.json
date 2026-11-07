@@ -1,0 +1,318 @@
+{
+ "platform": "windows",
+ "root": "C:\\",
+ "scanned_at": "2026-11-07 21:30:00",
+ "elapsed_sec": 90.3,
+ "total_size": 105719110029,
+ "total_files": 303501,
+ "total_dirs": 200661,
+ "skipped": 266,
+ "dedup_bytes": 9341553868,
+ "dedup_files": 38711,
+ "min_size_mb": 50.0,
+ "errors": [],
+ "tree": {
+  "name": "C:\\",
+  "path": "C:\\",
+  "size": 105719110029,
+  "files": 303501,
+  "children": [
+   {
+    "name": "Users",
+    "path": "C:\\Users",
+    "size": 47790738629,
+    "files": 44800,
+    "children": [
+     {
+      "name": "AppData",
+      "path": "C:\\Users\\AppData",
+      "size": 23476358344,
+      "files": 35000,
+      "children": [
+       {
+        "name": "Local",
+        "path": "C:\\Users\\AppData\\Local",
+        "size": 13283360765,
+        "files": 28000,
+        "children": [
+         {
+          "name": "Google",
+          "path": "C:\\Users\\AppData\\Local\\Google",
+          "size": 4402341478,
+          "files": 6000,
+          "children": [],
+          "_small": 0
+         },
+         {
+          "name": "Packages",
+          "path": "C:\\Users\\AppData\\Local\\Packages",
+          "size": 2576980377,
+          "files": 4000,
+          "children": [],
+          "_small": 0
+         },
+         {
+          "name": "ms-playwright",
+          "path": "C:\\Users\\AppData\\Local\\ms-playwright",
+          "size": 2362232012,
+          "files": 2200,
+          "children": [],
+          "_small": 0
+         },
+         {
+          "name": "Microsoft",
+          "path": "C:\\Users\\AppData\\Local\\Microsoft",
+          "size": 1717986918,
+          "files": 5000,
+          "children": [],
+          "_small": 0
+         },
+         {
+          "name": "JianyingPro",
+          "path": "C:\\Users\\AppData\\Local\\JianyingPro",
+          "size": 1288490188,
+          "files": 1800,
+          "children": [],
+          "_small": 0
+         },
+         {
+          "name": "Temp",
+          "path": "C:\\Users\\AppData\\Local\\Temp",
+          "size": 536870912,
+          "files": 9000,
+          "children": [],
+          "_small": 0
+         }
+        ],
+        "_small": 398458880
+       },
+       {
+        "name": "Roaming",
+        "path": "C:\\Users\\AppData\\Roaming",
+        "size": 8734218648,
+        "files": 6600,
+        "children": [
+         {
+          "name": "Tencent",
+          "path": "C:\\Users\\AppData\\Roaming\\Tencent",
+          "size": 6657199308,
+          "files": 5000,
+          "children": [],
+          "_small": 0
+         },
+         {
+          "name": "Baidu",
+          "path": "C:\\Users\\AppData\\Roaming\\Baidu",
+          "size": 1181116006,
+          "files": 900,
+          "children": [],
+          "_small": 0
+         },
+         {
+          "name": "360safe",
+          "path": "C:\\Users\\AppData\\Roaming\\360safe",
+          "size": 644245094,
+          "files": 700,
+          "children": [],
+          "_small": 0
+         }
+        ],
+        "_small": 251658240
+       },
+       {
+        "name": "LocalLow",
+        "path": "C:\\Users\\AppData\\LocalLow",
+        "size": 1458778931,
+        "files": 400,
+        "children": [
+         {
+          "name": "NVIDIA",
+          "path": "C:\\Users\\AppData\\LocalLow\\NVIDIA",
+          "size": 1395864371,
+          "files": 400,
+          "children": [],
+          "_small": 0
+         }
+        ],
+        "_small": 62914560
+       }
+      ],
+      "_small": 0
+     },
+     {
+      "name": "Documents",
+      "path": "C:\\Users\\Documents",
+      "size": 6979321856,
+      "files": 4000,
+      "children": [],
+      "_small": 0
+     },
+     {
+      "name": ".cache",
+      "path": "C:\\Users\\.cache",
+      "size": 5515509758,
+      "files": 2800,
+      "children": [
+       {
+        "name": "codex-runtimes",
+        "path": "C:\\Users\\.cache\\codex-runtimes",
+        "size": 2147483648,
+        "files": 900,
+        "children": [],
+        "_small": 0
+       },
+       {
+        "name": "hyperframes",
+        "path": "C:\\Users\\.cache\\hyperframes",
+        "size": 1288490188,
+        "files": 500,
+        "children": [],
+        "_small": 0
+       },
+       {
+        "name": "npm",
+        "path": "C:\\Users\\.cache\\npm",
+        "size": 966367641,
+        "files": 800,
+        "children": [],
+        "_small": 0
+       },
+       {
+        "name": "pip",
+        "path": "C:\\Users\\.cache\\pip",
+        "size": 966367641,
+        "files": 600,
+        "children": [],
+        "_small": 0
+       }
+      ],
+      "_small": 146800640
+     },
+     {
+      "name": "Downloads",
+      "path": "C:\\Users\\Downloads",
+      "size": 4509715660,
+      "files": 300,
+      "children": [],
+      "_small": 0
+     },
+     {
+      "name": ".codex",
+      "path": "C:\\Users\\.codex",
+      "size": 3758096384,
+      "files": 1500,
+      "children": [],
+      "_small": 0
+     },
+     {
+      "name": "Desktop",
+      "path": "C:\\Users\\Desktop",
+      "size": 3006477107,
+      "files": 900,
+      "children": [],
+      "_small": 0
+     }
+    ],
+    "_small": 545259520
+   },
+   {
+    "name": "Windows",
+    "path": "C:\\Windows",
+    "size": 17835019466,
+    "files": 216700,
+    "children": [
+     {
+      "name": "WinSxS",
+      "path": "C:\\Windows\\WinSxS",
+      "size": 7301444403,
+      "files": 90000,
+      "children": [],
+      "_small": 0
+     },
+     {
+      "name": "System32",
+      "path": "C:\\Windows\\System32",
+      "size": 4509715660,
+      "files": 50000,
+      "children": [],
+      "_small": 0
+     },
+     {
+      "name": "Installer",
+      "path": "C:\\Windows\\Installer",
+      "size": 2254857830,
+      "files": 12000,
+      "children": [],
+      "_small": 0
+     },
+     {
+      "name": "assembly",
+      "path": "C:\\Windows\\assembly",
+      "size": 1503238553,
+      "files": 9000,
+      "children": [],
+      "_small": 0
+     },
+     {
+      "name": "SysWOW64",
+      "path": "C:\\Windows\\SysWOW64",
+      "size": 1181116006,
+      "files": 15000,
+      "children": [],
+      "_small": 0
+     },
+     {
+      "name": "Fonts",
+      "path": "C:\\Windows\\Fonts",
+      "size": 644245094,
+      "files": 700,
+      "children": [],
+      "_small": 0
+     }
+    ],
+    "_small": 440401920
+   },
+   {
+    "name": "Program Files",
+    "path": "C:\\Program Files",
+    "size": 9119255756,
+    "files": 14000,
+    "children": [],
+    "_small": 314572800
+   },
+   {
+    "name": "Program Files (x86)",
+    "path": "C:\\Program Files (x86)",
+    "size": 11588861952,
+    "files": 16000,
+    "children": [],
+    "_small": 314572800
+   },
+   {
+    "name": "ProgramData",
+    "path": "C:\\ProgramData",
+    "size": 7574074163,
+    "files": 9000,
+    "children": [],
+    "_small": 272629760
+   },
+   {
+    "name": "Games",
+    "path": "C:\\Games",
+    "size": 6657199308,
+    "files": 3000,
+    "children": [],
+    "_small": 0
+   },
+   {
+    "name": "pagefile.sys",
+    "path": "C:\\pagefile.sys",
+    "size": 5153960755,
+    "files": 1,
+    "children": [],
+    "_small": 0
+   }
+  ],
+  "_small": 0
+ }
+}
